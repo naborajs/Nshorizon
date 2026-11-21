@@ -68,12 +68,12 @@ impl Launcher {
             );
         } else {
             body = body.child(
-                button("nsgo-sign-in", "NSGO", Kind::Secondary, &t).on_click(
-                    cx.listener(|this, _: &ClickEvent, _, cx| {
+                nsgo_brand::sign_in_button("glass-nsgo-sign-in")
+                    .w_full()
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                         this.submit_nsgo();
                         cx.notify();
-                    }),
-                ),
+                    })),
             );
         }
 

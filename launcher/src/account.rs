@@ -629,7 +629,7 @@ fn check_with(
         return Check::NoAnswer(SIGN_IN_AGAIN.into(), secrets);
     }
     if account.is_nsgo() {
-        return nsgo::refresh(account, secrets);
+        return nsgo::refresh(account, secrets, force);
     }
     if secrets.sign_in_required {
         return Check::NoAnswer(SIGN_IN_AGAIN.into(), secrets);
@@ -2136,7 +2136,7 @@ pub fn launch_for_game(
             .ok_or_else(|| NoOwner {
                 keyring: Some(nsgo::EXPIRED.to_string()),
             })?;
-        return match nsgo::refresh(&account, secrets) {
+        return match nsgo::refresh(&account, secrets, false) {
             Check::Owns(renewed, secrets) => {
                 store
                     .set(
@@ -2397,8 +2397,8 @@ impl SignIn {
                 #[cfg(windows)]
                 {
                     use std::os::windows::process::CommandExt;
-                    let _ = std::process::Command::new("cmd")
-                        .args(["/C", "start", "", &auth_url])
+                    let _ = std::process::Command::new("rundll32")
+                        .args(["url.dll,FileProtocolHandler", &auth_url])
                         .creation_flags(0x08000000)
                         .spawn();
                 }
@@ -2673,7 +2673,12 @@ fn account_sessions_until(
                 && !s.sign_in_required
                 && s.minecraft_expires_at > now() + margin
         };
-        let known = holds(&secrets, RENEW_BEFORE);
+        let margin = if account.is_nsgo() {
+            nsgo::NSGO_RENEW_BEFORE
+        } else {
+            RENEW_BEFORE
+        };
+        let known = holds(&secrets, margin);
         let late = operation.is_err() || Instant::now() >= deadline;
         let (account, secrets) = match known {
             true => (Some(account), secrets),

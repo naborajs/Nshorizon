@@ -143,11 +143,13 @@ pub fn fetch_userinfo(token: &str) -> Result<UserInfo, String> {
     })
 }
 
-pub(super) fn refresh(account: &Account, mut secrets: Secrets) -> Check {
+pub(super) const NSGO_RENEW_BEFORE: u64 = 300;
+
+pub(super) fn refresh(account: &Account, mut secrets: Secrets, force: bool) -> Check {
     if !secrets.nsgo {
         return Check::NoAnswer(EXPIRED.into(), secrets);
     }
-    if secrets.minecraft_expires_at > now() + RENEW_BEFORE && !secrets.sign_in_required {
+    if !force && secrets.minecraft_expires_at > now() + NSGO_RENEW_BEFORE && !secrets.sign_in_required {
         return Check::Owns(account.clone(), secrets);
     }
 

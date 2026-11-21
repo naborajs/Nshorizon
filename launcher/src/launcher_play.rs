@@ -557,7 +557,15 @@ impl Launcher {
 
     pub(crate) fn re_sign_in(&mut self, uuid: &str) {
         if let Some(account) = self.accounts.find(uuid).cloned() {
-            self.begin_sign_in(Some(account));
+            if account.is_nsgo() {
+                self.cancel_sign_in();
+                self.nsgo.active = true;
+                self.sign_in_target = Some(account.clone());
+                self.sign_in = Some(SignIn::start_nsgo(Some(account)));
+                self.sign_in_state = Some(SignInState::Starting);
+            } else {
+                self.begin_sign_in(Some(account));
+            }
         }
     }
 

@@ -274,13 +274,24 @@ fn exchange_code(code: &str, verifier: &str, port: u16) -> Result<Tokens, String
 
 pub fn refresh_tokens(refresh_token: &str) -> Result<(String, Option<String>, Option<u64>), String> {
     let url = token_url();
-    let res = request_to("POST", &url)
-        .send_form(&[
-            ("grant_type", "refresh_token"),
-            ("client_id", CLIENT_ID),
-            ("refresh_token", refresh_token),
-        ])
-        .map_err(|e| format!("Failed to refresh NSGO token: {e}"))?;
+    let res = match request_to("POST", &url).send_form(&[
+        ("grant_type", "refresh_token"),
+        ("client_id", CLIENT_ID),
+        ("refresh_token", refresh_token),
+    ]) {
+        Ok(res) => res,
+        Err(ureq::Error::Status(code, res)) => {
+            if let Ok(body) = res.into_string() {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
+                    if let Some(desc) = val.get("error_description").and_then(|v| v.as_str()) {
+                        return Err(format!("NSGO sign-in expired ({desc}). Please sign in again."));
+                    }
+                }
+            }
+            return Err(format!("NSGO sign-in expired (status {code}). Please sign in again."));
+        }
+        Err(e) => return Err(format!("Could not connect to NSGO: {e}")),
+    };
 
     let body = res
         .into_string()

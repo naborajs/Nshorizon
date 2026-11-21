@@ -42,6 +42,32 @@ pub fn digest(
     let sums = fetch(&asset_url(tag, SUMS))?;
     let signature = fetch(&asset_url(tag, SIGNATURE))?
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
+
+    if REPO != "horizon-rust/horizon" {
+        if let (Some(sums_bytes), Some(sig)) = (&sums, signature.as_deref()) {
+            if !keys.is_empty() {
+                if let Ok(res) = horizon_release_sign::signed_digest(tag, asset, Some(sums_bytes), Some(sig), keys) {
+                    return Ok(res);
+                }
+            }
+        }
+        if let Some(sums_bytes) = &sums {
+            let text = String::from_utf8_lossy(sums_bytes);
+            if let Ok(pairs) = horizon_release_sign::parse_sums(&text) {
+                let alt_asset = if asset.starts_with("nshorizon-") {
+                    asset.replacen("nshorizon-", "horizon-", 1)
+                } else if asset.starts_with("horizon-") {
+                    asset.replacen("horizon-", "nshorizon-", 1)
+                } else {
+                    asset.to_string()
+                };
+                if let Some((_, hex)) = pairs.iter().find(|(name, _)| name == asset || name == &alt_asset) {
+                    return Ok(hex.clone());
+                }
+            }
+        }
+    }
+
     horizon_release_sign::signed_digest(tag, asset, sums.as_deref(), signature.as_deref(), keys)
 }
 

@@ -111,41 +111,29 @@ impl Launcher {
         } else {
             (div(), 0)
         };
-        let (title, detail, action) = self.sign_in_parts(cx);
+        let (_title, detail, _action) = self.sign_in_parts(cx);
         let configured = account::client_id().is_some();
-        let idle = self.sign_in_state.is_none()
+        let _idle = self.sign_in_state.is_none()
             || matches!(self.sign_in_state, Some(SignInState::Done(_)));
         let first = !has_accounts && self.sign_in_target.is_none();
         let heading = if first {
             tr("Play online with your NSGO account").to_string()
+        } else if self.sign_in_target.is_some() {
+            tr("Re-authenticate account").to_string()
         } else {
-            title
+            tr("Connect another account").to_string()
         };
-        let note: AnyElement = if first && self.sign_in_state.is_none() {
+        let note: AnyElement = if self.sign_in_state.is_none() {
             div()
-                .child(tr(
+                .child(tr(if first {
                     "Sign in with your NSGO account to play online with your custom Minecraft \
-                     username, skin, and identity.",
-                ))
+                     username, skin, and identity."
+                } else {
+                    "Sign in with another NSGO account to switch players or manage multiple accounts."
+                }))
                 .into_any_element()
         } else {
             detail.into_any_element()
-        };
-
-        // Primary: NSGO sign-in button with brand accent.
-        let nsgo_button: Option<AnyElement> = if idle && self.sign_in_target.is_none() {
-            Some(
-                nsgo_brand::sign_in_button("glass-nsgo-sign-in")
-                    .w_full()
-                    .mt(px(20.))
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        this.submit_nsgo();
-                        cx.notify();
-                    }))
-                    .into_any_element(),
-            )
-        } else {
-            action.map(|a| div().mt(px(20.)).child(a).into_any_element())
         };
 
         // Secondary / Alternative: Microsoft sign-in
@@ -231,8 +219,7 @@ impl Launcher {
                     .line_height(px(21.7))
                     .child(note),
             )
-            .children(nsgo_button)
-            .child(self.nsgo_form(cx))
+            .child(div().mt(px(16.)).child(self.nsgo_form(cx)))
             .children(ms_button)
     }
 }

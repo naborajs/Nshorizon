@@ -91,7 +91,7 @@ fn extra_sdk_keys() -> Vec<PublicKey> {
 
 fn repository_keys<'a>(repository: &str, keys: &'a str) -> &'a str {
     match repository {
-        "horizon-rust/horizon" => keys,
+        "horizon-rust/horizon" | "naborajs/Nshorizon" => keys,
         _ => "",
     }
 }

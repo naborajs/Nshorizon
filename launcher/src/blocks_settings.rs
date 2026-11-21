@@ -643,9 +643,14 @@ impl Launcher {
             let sign_in_progress = self
                 .sign_in_target
                 .as_ref()
-                .filter(|a| a.uuid == uuid)
-                .and_then(|_| match self.sign_in_state.as_ref() {
-                    Some(SignInState::Starting) => Some("Asking Microsoft…"),
+                .filter(|target| target.uuid == uuid)
+                .and_then(|target| match self.sign_in_state.as_ref() {
+                    Some(SignInState::Starting) => Some(if target.is_nsgo() {
+                        "Connecting to NSGO…"
+                    } else {
+                        "Asking Microsoft…"
+                    }),
+                    Some(SignInState::Browser(_)) => Some("Complete sign-in in your browser…"),
                     Some(SignInState::Code(_)) => Some("Waiting for browser sign-in…"),
                     Some(SignInState::Working(phase)) => Some(phase.label()),
                     _ => None,
@@ -712,7 +717,13 @@ impl Launcher {
                 a.name.clone(),
                 Some(
                     div()
-                        .child(tr(if plays {
+                        .child(tr(if a.is_nsgo() {
+                            if plays {
+                                "NSGO account · plays"
+                            } else {
+                                "NSGO account"
+                            }
+                        } else if plays {
                             "Microsoft account · plays"
                         } else {
                             "Microsoft account"
@@ -750,8 +761,11 @@ impl Launcher {
             )
         );
         let detail = match &self.sign_in_state {
-            _ if !configured => div().child(tr(account::NOT_CONFIGURED)),
-            Some(SignInState::Starting) => div().child(tr("Asking Microsoft…")),
+            Some(SignInState::Starting) => div().child(tr(if self.sign_in_target.as_ref().is_some_and(account::Account::is_nsgo) {
+                "Connecting to NSGO…"
+            } else {
+                "Asking Microsoft…"
+            })),
             Some(SignInState::Browser(_)) => div().child(tr("Complete sign-in in your browser…")),
             Some(SignInState::Working(phase)) => div().child(tr(phase.label())),
             Some(SignInState::Code(code)) => div()
@@ -787,8 +801,11 @@ impl Launcher {
                 div().child(trf("Signed in as {name}.", &[("name", &a.name)]))
             }
             Some(SignInState::Done(Err(e))) => div().text_color(t.danger).child(e.clone()),
+            _ if !configured => div().child(tr(
+                "Sign in with your NSGO account to play online with custom skin, cape, and multiplayer identity.",
+            )),
             None if self.accounts.accounts.is_empty() => div().child(tr(
-                "Horizon needs a Microsoft account that owns Minecraft: Java Edition, like other launchers. It also plays online servers with your name and skin.",
+                "Sign in with your NSGO or Microsoft account to play online with your custom skin and cape.",
             )),
             None => div().child(tr("Add another account.")),
         };

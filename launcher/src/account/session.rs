@@ -84,7 +84,17 @@ impl Status {
             None => State::SignInRequired,
             Some(s) if s.sign_in_required => State::SignInRequired,
             Some(s) if !s.owns => State::OwnershipRequired,
-            Some(s) if s.minecraft_expires_at <= now() + RENEW_BEFORE => State::NeedsRefresh,
+            Some(s)
+                if s.minecraft_expires_at
+                    <= now()
+                        + if s.nsgo {
+                            super::nsgo::NSGO_RENEW_BEFORE
+                        } else {
+                            RENEW_BEFORE
+                        } =>
+            {
+                State::NeedsRefresh
+            }
             Some(_) => State::Ready,
         };
         let mut status = Self {

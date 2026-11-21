@@ -11,13 +11,13 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 /// Authority for game, launcher and native SDK release reads on this fork.
-pub const REPO: &str = "horizon-rust/horizon";
+pub const REPO: &str = "naborajs/Nshorizon";
 
 /// Where a crash is reported.
 pub fn issues_url() -> String {
     format!("https://github.com/{REPO}/issues")
 }
-pub const README_URL: &str = "https://github.com/horizon-rust/horizon/blob/main/launcher/README.md";
+pub const README_URL: &str = "https://github.com/naborajs/Nshorizon/blob/main/README.md";
 /// The players' page on connecting an AI agent (the website's docs/agents.md).
 pub const AGENT_DOCS_URL: &str = "https://playhorizon.dev/docs/agents";
 /// This launcher's version: the release workflow sets `HORIZON_LAUNCHER_VERSION` from the
@@ -531,6 +531,8 @@ pub fn is_game_tag(tag: &str) -> bool {
 pub fn launcher_version(tag: &str) -> Option<&str> {
     tag.strip_prefix(LAUNCHER_TAG_PREFIX)
         .or_else(|| tag.strip_prefix(OLD_LAUNCHER_TAG_PREFIX))
+        .or_else(|| tag.strip_prefix('v'))
+        .or_else(|| if tag.starts_with(|c: char| c.is_ascii_digit()) { Some(tag) } else { None })
         .filter(|v| v.starts_with(|c: char| c.is_ascii_digit()))
 }
 
@@ -696,8 +698,13 @@ pub(crate) fn parse_releases(
         }
         let found = r["assets"].as_array().into_iter().flatten().find_map(|a| {
             let name = a["name"].as_str()?;
-            (Some(name) == asset)
-                .then(|| Some((crate::signed::asset_url(tag, name), a["size"].as_u64()?)))?
+            let matches = Some(name) == asset
+                || asset.is_some_and(|target| {
+                    name == target
+                        || name == target.replace("horizon-", "nshorizon-")
+                        || target == name.replace("horizon-", "nshorizon-")
+                });
+            matches.then(|| Some((crate::signed::asset_url(tag, name), a["size"].as_u64()?)))?
         });
         out.push(Release {
             tag: tag.into(),
