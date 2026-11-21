@@ -521,10 +521,10 @@ pub(crate) fn get_unless_missing(url: &str) -> Result<Option<ureq::Response>, St
     }
 }
 
-/// A Horizon game tag: `v` then a digit (`v2026.10.13`). Launcher tags never match.
+/// A Horizon game tag: `v` then a digit (`v2026.10.13`) or semver tag (`1.0.0`). Launcher tags never match.
 pub fn is_game_tag(tag: &str) -> bool {
-    tag.strip_prefix('v')
-        .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
+    let tag = tag.strip_prefix('v').unwrap_or(tag);
+    tag.starts_with(|c: char| c.is_ascii_digit())
 }
 
 /// The launcher version in a `launcher@X.Y.Z` (or `launcher-vX.Y.Z`) tag, or None for any other tag.
