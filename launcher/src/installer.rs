@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE};
 use winreg::RegKey;
 
-pub const APP_NAME: &str = "Horizon Launcher";
+pub const APP_NAME: &str = "Nshorizon Launcher";
 const BINARY: &str = "horizon-launcher.exe";
 const PUBLISHER: &str = "Horizon";
 const ABOUT_URL: &str = horizon_addresses::LAUNCHER_ABOUT;
