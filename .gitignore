@@ -44,3 +44,11 @@
 
 # Visual Studio editor state.
 .vs/
+
+# Environment files and credentials
+.env
+.env.*
+*.pem
+*.key
+secrets*.json
+
