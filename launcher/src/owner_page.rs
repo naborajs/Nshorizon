@@ -19,11 +19,6 @@ impl Launcher {
     /// screen, or Microsoft still answering) is shown as it is, not started over.
     pub(crate) fn sign_in_to_play(&mut self) {
         self.owner_screen_open = true;
-        let under_way = self.sign_in.is_some()
-            && !matches!(self.sign_in_state, None | Some(SignInState::Done(_)));
-        if !under_way {
-            self.start_sign_in();
-        }
     }
 
     /// Closes it; it comes back with the next refused Play.
@@ -43,7 +38,10 @@ impl Launcher {
         // The screenshot preview shows a code without asking Microsoft for one.
         let state = match &self.sign_in_state {
             _ if sign_in_preview() => Shown::Code("https://www.microsoft.com/link", "K7Q-4MXR"),
-            _ if !configured => Shown::Error(tr(account::NOT_CONFIGURED)),
+            Some(SignInState::Starting) if self.nsgo.active => {
+                Shown::Starting("Opening NSGO sign-in in browser…")
+            }
+            Some(SignInState::Browser(url)) => Shown::Browser(url),
             Some(SignInState::Starting) => Shown::Starting("Asking Microsoft…"),
             Some(SignInState::Working(phase)) => Shown::Starting(phase.label()),
             Some(SignInState::Code(code)) => Shown::Code(&code.verification_uri, &code.user_code),
@@ -64,9 +62,9 @@ impl Launcher {
             .flex_col()
             .gap(px(10.))
             .child(
-                shell::text(theme::night::CAPTION, shell::c(n.muted))
+                shell::text(theme::night::CAPTION, shell::c(0xfb923c))
                     .font_weight(FontWeight::SEMIBOLD)
-                    .child(tr("Microsoft account").to_string()),
+                    .child(tr("NSGO account").to_string()),
             )
             .child(
                 shell::text(theme::night::TITLE, shell::c(n.ink))
@@ -74,7 +72,7 @@ impl Launcher {
                     .child(tr("Sign in to play").to_string()),
             )
             .child(line(
-                "Horizon needs a Microsoft account that owns Minecraft: Java Edition, like other launchers.",
+                "Sign in with your NSGO account to play online with custom skin, cape, and server access.",
                 n.ink_soft,
             ))
             .child(line(
@@ -186,6 +184,25 @@ impl Launcher {
             Shown::Starting(what) => body.child(raised().child(
                 shell::text(theme::night::UI, shell::c(n.ink_soft)).child(tr(what).to_string()),
             )),
+            Shown::Browser(uri) => {
+                let link_uri = uri.to_string();
+                body.child(
+                    raised()
+                        .flex()
+                        .items_center()
+                        .justify_between()
+                        .gap(px(16.))
+                        .child(
+                            shell::text(theme::night::UI, shell::c(n.ink_soft))
+                                .child(tr("Complete sign-in in your browser…").to_string()),
+                        )
+                        .child(
+                            shell::action("owner-browser-open", shell::Action::Main, &t)
+                                .child(shell::label(tr("Open link").to_string()))
+                                .on_click(move |_, _, cx| cx.open_url(&link_uri)),
+                        ),
+                )
+            }
             Shown::Error(e) => body.child(
                 raised()
                     .child(shell::text(theme::night::UI, shell::c(n.danger)).child(e.to_string())),
@@ -201,12 +218,20 @@ impl Launcher {
                         .on_click(move |_, _, cx| cx.open_url(&uri)),
                 )
             }
+            Shown::Browser(_) => Some(
+                shell::action("owner-cancel", shell::Action::Quiet, &t)
+                    .child(shell::label(tr("Cancel").to_string()))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.cancel_sign_in();
+                        this.nsgo.active = false;
+                        cx.notify();
+                    })),
+            ),
             Shown::Starting(_) => None,
-            Shown::Error(_) if !configured => None,
             _ => Some(
-                microsoft::sign_in_button("owner-sign-in", &t).on_click(cx.listener(
+                nsgo_brand::sign_in_button("owner-nsgo-sign-in").on_click(cx.listener(
                     |this, _: &ClickEvent, _, cx| {
-                        this.sign_in_to_play();
+                        this.submit_nsgo();
                         cx.notify();
                     },
                 )),
@@ -224,6 +249,24 @@ impl Launcher {
             .gap(px(10.))
             .mt(px(14.))
             .children(main)
+            .child(if configured {
+                microsoft::sign_in_button("owner-sign-in", &t).on_click(cx.listener(
+                    |this, _: &ClickEvent, _, cx| {
+                        this.start_sign_in();
+                        cx.notify();
+                    },
+                ))
+            } else {
+                shell::action("owner-sign-in", shell::Action::Quiet, &t)
+                    .child(shell::label(tr("Microsoft").to_string()))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.sign_in_state = Some(SignInState::Done(Err(tr(
+                            "Microsoft sign-in requires HORIZON_MSA_CLIENT_ID. Please sign in with NSGO.",
+                        )
+                        .to_string())));
+                        cx.notify();
+                    }))
+            })
             .child(
                 shell::action("owner-later", shell::Action::Quiet, &t)
                     .child(shell::label(tr("Not now").to_string()))
@@ -274,11 +317,11 @@ impl Launcher {
     fn glass_owner_screen(
         &self,
         state: Shown,
-        configured: bool,
+        _configured: bool,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         use crate::glass_ui::{self as ui, white};
-        use horizon_theme::glass::{ink, radius};
+        use horizon_theme::glass::{fill, ink, radius};
         let t = self.theme;
         let panel = || {
             div()
@@ -296,7 +339,11 @@ impl Launcher {
             .w(px(520.))
             .max_w_full()
             .p(px(32.))
-            .child(ui::text(13., FontWeight::MEDIUM, ink::QUIET).child(tr("Microsoft account")))
+            .child(
+                ui::text(13., FontWeight::MEDIUM, ink::FULL)
+                    .text_color(gpui::rgb(0xfb923c))
+                    .child(tr("NSGO account")),
+            )
             .child(
                 div()
                     .mt(px(8.))
@@ -314,11 +361,11 @@ impl Launcher {
                     .flex_col()
                     .gap(px(8.))
                     .child(ui::text(14., FontWeight::NORMAL, ink::BODY).child(tr(
-                        "Horizon needs a Microsoft account that owns Minecraft: Java Edition, like other launchers.",
+                        "Sign in with your NSGO account to play online with custom skin, cape, and server access.",
                     )))
                     .child(ui::text(14., FontWeight::NORMAL, ink::BODY).child(tr(
                         "No Minecraft install needed: Horizon downloads it from Mojang for your account.",
-))),
+                    ))),
             );
         card = match state {
             Shown::Code(uri, user_code) => {
@@ -410,6 +457,37 @@ impl Launcher {
                         ),
                 )
             }
+            Shown::Browser(uri) => {
+                let link_uri = uri.to_string();
+                card.child(
+                    panel()
+                        .flex()
+                        .items_center()
+                        .justify_between()
+                        .gap(px(16.))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_col()
+                                .gap(px(4.))
+                                .child(
+                                    ui::text(14., FontWeight::SEMIBOLD, ink::FULL)
+                                        .child(tr("Complete sign-in in your browser…")),
+                                )
+                                .child(
+                                    ui::text(12., FontWeight::NORMAL, ink::NOTE).child(tr(
+                                        "If your browser didn't open automatically, click Open Link.",
+                                    )),
+                                ),
+                        )
+                        .child(
+                            ui::quiet("owner-browser-open", tr("Open Link"), 36., &t)
+                                .on_click(move |_, _, cx| cx.open_url(&link_uri)),
+                        ),
+                )
+            }
             Shown::Starting(what) => card
                 .child(panel().child(ui::text(14., FontWeight::NORMAL, ink::BODY).child(tr(what)))),
             Shown::Error(e) => card.child(
@@ -437,44 +515,106 @@ impl Launcher {
                     .into_any_element(),
                 )
             }
-            Shown::Starting(_) => None,
-            Shown::Error(_) if !configured => None,
-            _ => Some(
-                keyboard(
-                    div()
-                        .id("owner-sign-in")
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .gap(px(10.))
-                        .h(px(44.))
-                        .px(px(20.))
-                        .rounded(px(radius::ROW))
-                        .bg(gpui::white())
-                        .cursor_pointer()
-                        .hover(|s| s.opacity(0.9))
-                        .font_family(horizon_theme::glass::FONT)
-                        .text_size(px(15.))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(gpui::rgb(horizon_theme::glass::ON_LIGHT))
-                        .child(microsoft::logo(18.))
-                        .child(tr("Sign in with Microsoft")),
+            Shown::Browser(_) => Some(
+                ui::button(
+                    "owner-cancel".into(),
+                    tr("Cancel").into(),
+                    Kind::Ghost,
                     &t,
                 )
+                .h(px(44.))
+                .px(px(20.))
                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                    this.sign_in_to_play();
+                    this.cancel_sign_in();
+                    this.nsgo.active = false;
                     cx.notify();
                 }))
                 .into_any_element(),
             ),
+            Shown::Starting(_) => None,
+            _ => Some(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(12.))
+                    .w_full()
+                    .child(
+                        nsgo_brand::sign_in_button("glass-owner-nsgo-sign-in")
+                            .w_full()
+                            .h(px(46.))
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.submit_nsgo();
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .gap(px(12.))
+                            .child(
+                                keyboard(
+                                    div()
+                                        .id("owner-sign-in")
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .gap(px(8.))
+                                        .h(px(40.))
+                                        .px(px(16.))
+                                        .rounded(px(10.))
+                                        .bg(white(fill::BUTTON))
+                                        .border_1()
+                                        .border_color(white(0.12))
+                                        .cursor_pointer()
+                                        .hover(|s| s.bg(white(fill::BUTTON_HOVER)))
+                                        .font_family(horizon_theme::glass::FONT)
+                                        .text_size(px(14.))
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .text_color(white(ink::FULL))
+                                        .child(microsoft::logo(16.))
+                                        .child(tr("Sign in with Microsoft")),
+                                    &t,
+                                )
+                                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    if account::client_id().is_some() {
+                                        this.start_sign_in();
+                                    } else {
+                                        this.sign_in_state = Some(SignInState::Done(Err(tr(
+                                            "Microsoft sign-in requires HORIZON_MSA_CLIENT_ID. Please sign in with NSGO to play.",
+                                        )
+                                        .to_string())));
+                                    }
+                                    cx.notify();
+                                })),
+                            )
+                            .child(
+                                ui::button("owner-later".into(), tr("Not now").into(), Kind::Ghost, &t)
+                                    .h(px(40.))
+                                    .px(px(16.))
+                                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                        this.close_owner_screen();
+                                        cx.notify();
+                                    })),
+                            ),
+                    )
+                    .into_any_element(),
+            ),
         };
-        let later = ui::button("owner-later".into(), tr("Not now").into(), Kind::Ghost, &t)
-            .h(px(44.))
-            .px(px(20.))
-            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                this.close_owner_screen();
-                cx.notify();
-            }));
+        let later = if matches!(state, Shown::Code(..)) {
+            Some(
+                ui::button("owner-later".into(), tr("Not now").into(), Kind::Ghost, &t)
+                    .h(px(44.))
+                    .px(px(20.))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.close_owner_screen();
+                        cx.notify();
+                    })),
+            )
+        } else {
+            None
+        };
         card = card.child(
             div()
                 .flex()
@@ -482,7 +622,7 @@ impl Launcher {
                 .gap(px(8.))
                 .mt(px(24.))
                 .children(main)
-                .child(later),
+                .children(later),
         );
         if matches!(state, Shown::Code(..)) {
             card = card.child(
@@ -524,6 +664,8 @@ enum Shown<'a> {
     Starting(&'static str),
     /// The page and the code to enter there.
     Code(&'a str, &'a str),
+    /// Browser authorization flow is open.
+    Browser(&'a str),
     Error(&'a str),
 }
 

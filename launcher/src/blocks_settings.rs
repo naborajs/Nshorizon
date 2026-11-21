@@ -742,11 +742,17 @@ impl Launcher {
         let configured = account::client_id().is_some();
         let busy = matches!(
             self.sign_in_state,
-            Some(SignInState::Starting | SignInState::Code(_) | SignInState::Working(_))
+            Some(
+                SignInState::Starting
+                    | SignInState::Code(_)
+                    | SignInState::Working(_)
+                    | SignInState::Browser(_)
+            )
         );
         let detail = match &self.sign_in_state {
             _ if !configured => div().child(tr(account::NOT_CONFIGURED)),
             Some(SignInState::Starting) => div().child(tr("Asking Microsoft…")),
+            Some(SignInState::Browser(_)) => div().child(tr("Complete sign-in in your browser…")),
             Some(SignInState::Working(phase)) => div().child(tr(phase.label())),
             Some(SignInState::Code(code)) => div()
                 .flex()

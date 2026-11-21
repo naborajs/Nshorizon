@@ -1075,35 +1075,73 @@ impl Launcher {
             .child(keyboard(chip, &t))
             .children(self.glass_account_menu(cx));
 
-        // Signing in with Microsoft, while nobody is: the mockup's button.
+        // Signing in when nobody is selected: NSGO (primary) and Microsoft (secondary).
         let sign_in = self.accounts.selected().is_none().then(|| {
-            keyboard(
-                div()
-                    .id("topbar-sign-in")
-                    .relative()
-                    .flex()
-                    .items_center()
-                    .gap(px(10.))
-                    .h(px(44.))
-                    .px(px(if tight { 14. } else { 16. }))
-                    .rounded(px(radius::ROW))
-                    .bg(white(fill::BUTTON))
-                    .hover(|s| s.bg(white(fill::BUTTON_HOVER)))
-                    .cursor_pointer()
-                    .child(microsoft::logo(16.))
-                    .when(!tight, |d| {
-                        d.child(
-                            ui::text(14., FontWeight::MEDIUM, ink::FULL)
-                                .child(tr("Sign in with Microsoft")),
-                        )
-                    })
-                    .when(tight, |d| d.tooltip(ui::tip(tr("Sign in with Microsoft"))))
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        this.start_sign_in();
-                        cx.notify();
-                    })),
-                &t,
-            )
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.))
+                .child(keyboard(
+                    div()
+                        .id("topbar-nsgo-sign-in")
+                        .relative()
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .h(px(44.))
+                        .px(px(if tight { 12. } else { 16. }))
+                        .rounded(px(radius::ROW))
+                        .bg(gpui::linear_gradient(
+                            135.0,
+                            gpui::linear_color_stop(gpui::rgb(0xea580c), 0.0),
+                            gpui::linear_color_stop(gpui::rgb(0xc2410c), 1.0),
+                        ))
+                        .border_1()
+                        .border_color(gpui::rgb(0xfb923c))
+                        .hover(|s| s.opacity(0.92))
+                        .cursor_pointer()
+                        .child(nsgo_brand::logo(16.))
+                        .when(!tight, |d| {
+                            d.child(
+                                ui::text(14., FontWeight::SEMIBOLD, ink::FULL)
+                                    .text_color(gpui::white())
+                                    .child(tr("NSGO")),
+                            )
+                        })
+                        .when(tight, |d| d.tooltip(ui::tip(tr("NSGO"))))
+                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                            this.submit_nsgo();
+                            cx.notify();
+                        })),
+                    &t,
+                ))
+                .child(keyboard(
+                    div()
+                        .id("topbar-sign-in")
+                        .relative()
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .h(px(44.))
+                        .px(px(if tight { 10. } else { 14. }))
+                        .rounded(px(radius::ROW))
+                        .bg(white(fill::BUTTON))
+                        .hover(|s| s.bg(white(fill::BUTTON_HOVER)))
+                        .cursor_pointer()
+                        .child(microsoft::logo(16.))
+                        .when(!tight, |d| {
+                            d.child(
+                                ui::text(14., FontWeight::MEDIUM, ink::FULL)
+                                    .child(tr("Microsoft")),
+                            )
+                        })
+                        .when(tight, |d| d.tooltip(ui::tip(tr("Sign in with Microsoft"))))
+                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                            this.start_sign_in();
+                            cx.notify();
+                        })),
+                    &t,
+                ))
         });
         // Search: the palette (⌘K or Ctrl+K anywhere), as a field-shaped button.
         let sid = SharedString::from("topbar-search");

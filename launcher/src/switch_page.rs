@@ -6,8 +6,9 @@ impl Launcher {
     /// The chip's two lines: the name that plays, and how.
     pub(super) fn who_plays(&self) -> (String, &'static str) {
         match self.accounts.selected() {
+            Some(a) if a.is_nsgo() => (a.name.clone(), tr("NSGO account")),
             Some(a) => (a.name.clone(), tr("Microsoft account")),
-            None => (String::new(), tr("Sign in with Microsoft")),
+            None => (String::new(), tr("Sign in to play")),
         }
     }
 
@@ -15,7 +16,10 @@ impl Launcher {
         let mut accounts = Accounts::load();
         let done = accounts.play_as(uuid).and_then(|()| accounts.save());
         match done {
-            Ok(()) => self.accounts = accounts,
+            Ok(()) => {
+                self.owner = Some(accounts.can_play(account::store()));
+                self.accounts = accounts;
+            }
             Err(e) => self.sign_in_state = Some(SignInState::Done(Err(e))),
         }
         self.account_menu = false;
@@ -26,7 +30,17 @@ impl Launcher {
         self.accounts
             .accounts
             .iter()
-            .map(|a| (a.uuid.clone(), a.name.clone(), tr("Microsoft")))
+            .map(|a| {
+                (
+                    a.uuid.clone(),
+                    a.name.clone(),
+                    if a.is_nsgo() {
+                        tr("NSGO")
+                    } else {
+                        tr("Microsoft")
+                    },
+                )
+            })
             .collect()
     }
 
