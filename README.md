@@ -6,10 +6,12 @@
 **100% Free & Open-Source · Zero Account Barrier · Native NSGO Authentication · 240+ Hz High-Performance Native Engine**
 
 [![GitHub Release](https://img.shields.io/github/v/release/naborajs/Nshorizon?color=orange&label=Release)](https://github.com/naborajs/Nshorizon/releases/latest)
+[![GitHub Stars](https://img.shields.io/github/stars/naborajs/Nshorizon?style=flat&color=yellow&label=Stars)](https://github.com/naborajs/Nshorizon/stargazers)
 [![Auth: NSGO Native](https://img.shields.io/badge/Auth-NSGO%20Native-ea580c.svg)](https://go.naborajs.me)
 [![License: LGPL-3.0-or-later](https://img.shields.io/badge/License-LGPL--3.0--or--later-blue.svg)](LICENSE)
 [![Rust: 1.95+](https://img.shields.io/badge/Rust-1.95%2B-black.svg?logo=rust)](https://www.rust-lang.org)
 [![Graphics: wgpu](https://img.shields.io/badge/Graphics-wgpu%20(Vulkan%2FDX12%2FMetal)-purple.svg)](https://wgpu.rs)
+[![Platforms](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-informational.svg)](https://github.com/naborajs/Nshorizon/releases/latest)
 
 <br/>
 
