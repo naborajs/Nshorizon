@@ -44,8 +44,12 @@
     "horizon.mods.dev": "a translation key"
   },
   "allowed": [
-    "crates/cargo-horizon-mod/src/registry.rs horizon-rust.github.io",
+    "crates/horizon-client-render/src/auth.rs go.naborajs.me",
+    "crates/horizon-client-render/src/auth.rs meproisjwecsvipdjfvr.supabase.co",
     "crates/horizon-client-render/src/pack_browser.rs api.modrinth.com",
+    "crates/horizon-client-render/src/skins.rs drop.naborajs.me",
+    "crates/horizon-client-render/src/skins.rs go.naborajs.me",
+    "crates/horizon-client-render/src/skins.rs meproisjwecsvipdjfvr.supabase.co",
     "crates/horizon-client/src/mod_registry.rs horizon-rust.github.io",
     "crates/horizon-client/src/mod_registry.rs playhorizon.dev",
     "crates/horizon-mod-registry/src/github.rs api.github.com",
@@ -60,6 +64,8 @@
     "crates/horizon-port-pack/src/worldgen.rs maven.neoforged.net",
     "crates/horizon-server/src/service.rs github.com",
     "crates/horizon-server/src/update.rs api.github.com",
+    "launcher/src/account/nsgo/agent.rs authlib-injector.yushi.moe",
+    "launcher/src/account/nsgo/mod.rs go.naborajs.me",
     "launcher/src/backend.rs api.github.com",
     "launcher/src/backend.rs github.com",
     "launcher/src/backend.rs playhorizon.dev",

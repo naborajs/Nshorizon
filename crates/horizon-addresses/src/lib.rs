@@ -25,15 +25,15 @@ pub const OFFICIAL_SERVER_STATUS: &str = "play.playhorizon.dev:24454";
 
 /// Horizon's website, where the launcher is downloaded: the game started without its prepared
 /// files sends the player there.
-pub const WEBSITE: &str = "https://playhorizon.dev";
+pub const WEBSITE: &str = "https://github.com/naborajs/Nshorizon";
 
 /// Minecraft's product links, offered by the official build's Mods screen.
 pub const MINECRAFT_WEBSITE: &str = "https://minecraft.net";
 pub const MINECRAFT_ISSUES: &str = "https://bugs.mojang.com";
 
-/// Horizon's license and issue tracker, offered by the official build's Mods screen.
-pub const LICENSE: &str = "https://github.com/horizon-rust/horizon/blob/main/LICENSE";
-pub const ISSUES: &str = "https://github.com/horizon-rust/horizon/issues";
+/// Nshorizon's license and issue tracker, offered by the official build's Mods screen.
+pub const LICENSE: &str = "https://github.com/naborajs/Nshorizon/blob/main/LICENSE";
+pub const ISSUES: &str = "https://github.com/naborajs/Nshorizon/issues";
 
 /// Modpack file hosts, including GitHub's release redirects and the loader's Maven repository.
 /// The launcher and porting CLI pass this policy to the platform's checked downloader.
@@ -83,7 +83,7 @@ pub const SHOP: &str = "https://playhorizon.dev/shop";
 pub const LAUNCHER_LOOK_CREDIT: &str = "https://github.com/Xmilon";
 
 /// The official launcher installer's product home.
-pub const LAUNCHER_ABOUT: &str = "https://playhorizon.dev";
+pub const LAUNCHER_ABOUT: &str = "https://github.com/naborajs/Nshorizon";
 
 /// Cargo's canonical source identity for the crates.io registry.
 pub const CARGO_CRATES_IO_SOURCE: &str = "registry+https://github.com/rust-lang/crates.io-index";
