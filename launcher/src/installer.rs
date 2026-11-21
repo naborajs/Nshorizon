@@ -89,7 +89,10 @@ pub fn is_setup_exe() -> bool {
     backend::exe_path()
         .file_stem()
         .and_then(|s| s.to_str())
-        .is_some_and(|s| s.to_ascii_lowercase().starts_with("horizon-launcher-setup"))
+        .is_some_and(|s| {
+            let lower = s.to_ascii_lowercase();
+            lower.starts_with("nshorizon-launcher-setup") || lower.starts_with("horizon-launcher-setup")
+        })
 }
 
 /// The window to open instead of the launcher: the wizard for the setup exe started without
