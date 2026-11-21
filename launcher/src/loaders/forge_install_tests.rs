@@ -401,6 +401,7 @@ fn a_real_installer_installs() {
     // account is involved: a made-up player, never the owner gate's.
     let game_dir = dir.join("instance");
     let player = crate::java_launch::Player {
+        nsgo: false,
         name: "Dev".into(),
         uuid: "00000000000000000000000000000000".into(),
         token: "none".into(),

@@ -19,6 +19,7 @@ fn under(base: &Path, rel: &str) -> PathBuf {
 
 fn player() -> Player {
     Player {
+        nsgo: false,
         name: "Notch".into(),
         uuid: "069a79f444e94726a5befca90e38aaf5".into(),
         token: "mc-token".into(),

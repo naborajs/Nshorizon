@@ -69,6 +69,8 @@ mod mods_project;
 mod motion;
 mod multiplayer_page;
 mod native_consent;
+mod nsgo_auth_page;
+mod nsgo_brand;
 mod native_log_page;
 mod native_registry_consent;
 mod nav_strip;
@@ -521,6 +523,7 @@ struct Launcher {
     collection: collection::Collection,
     /// Settings' "Connect an AI agent" (`agents_page`).
     agents: agents_page::AgentsUi,
+    pub(crate) nsgo: nsgo_auth_page::NsgoUi,
     /// How many play Horizon now, while the server answers ("N playing now" on the Play page).
     playing: Option<u64>,
     /// How many play on the official server now, while it answers ("M on the official SMP").
@@ -671,8 +674,8 @@ fn page_after_startup(page: Page, data_folder_failed: bool) -> Page {
 fn menus() -> Vec<Menu> {
     vec![
         Menu {
-            name: "Horizon Launcher".into(),
-            items: vec![MenuItem::action(tr("Quit Horizon Launcher"), Quit)],
+            name: "Nshorizon Launcher".into(),
+            items: vec![MenuItem::action(tr("Quit Nshorizon Launcher"), Quit)],
             disabled: false,
         },
         Menu {
@@ -910,10 +913,10 @@ mod tests {
     #[test]
     fn the_app_menu_has_quit() {
         let menus = super::menus();
-        assert_eq!(menus[0].name, "Horizon Launcher");
+        assert_eq!(menus[0].name, "Nshorizon Launcher");
         assert!(matches!(
             &menus[0].items[0],
-            gpui::MenuItem::Action { name, .. } if name == "Quit Horizon Launcher"
+            gpui::MenuItem::Action { name, .. } if name == "Quit Nshorizon Launcher"
         ));
     }
 

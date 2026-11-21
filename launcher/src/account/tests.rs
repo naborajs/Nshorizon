@@ -322,6 +322,7 @@ fn notch() -> Account {
 /// A signed-in account's secrets: a token good for two hours, and the last ownership answer.
 fn secrets(token: &str, owns: bool) -> Secrets {
     Secrets {
+        nsgo: false,
         refresh_token: "ms-refresh-1".into(),
         sign_in_required: false,
         minecraft_token: token.into(),
@@ -814,6 +815,7 @@ fn accounts_keep_secrets_in_the_store_only() {
         cape: None,
     };
     let secrets = Secrets {
+        nsgo: false,
         refresh_token: "r".into(),
         sign_in_required: false,
         minecraft_token: "mc-secret".into(),
@@ -1116,6 +1118,7 @@ fn session_files_are_private_and_complete() {
         cape: None,
     };
     let secrets = Secrets {
+        nsgo: false,
         refresh_token: "r".into(),
         sign_in_required: false,
         minecraft_token: "mc-token".into(),
@@ -2582,4 +2585,69 @@ fn a_launch_saving_late_keeps_sign_ins_and_outs_made_meanwhile() {
         .collect();
     assert_eq!(names, [std::ffi::OsString::from("accounts.json")]);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn nsgo_account_identifies_and_unstrips_profile_uuid() {
+    let account = Account {
+        uuid: "nsgo:069a79f444e94726a5befca90e38aaf5".into(),
+        name: "NsgoPlayer".into(),
+        skin: Some(("https://go.naborajs.me/skin.png".into(), "classic".into())),
+        cape: None,
+    };
+    assert!(account.is_nsgo());
+    assert_eq!(account.profile_uuid(), "069a79f444e94726a5befca90e38aaf5");
+    assert_eq!(account.provider_label(), "NSGO account");
+
+    let store = MemoryStore::default();
+    let mut accounts = Accounts::default();
+    let secrets = Secrets {
+        nsgo: true,
+        refresh_token: "nsgo-refresh".into(),
+        sign_in_required: false,
+        minecraft_token: "nsgo-access".into(),
+        minecraft_expires_at: now() + 3600,
+        xuid: None,
+        owns: true,
+    };
+    accounts.add(&store, account.clone(), &secrets).unwrap();
+    assert_eq!(
+        accounts.find("nsgo:069a79f444e94726a5befca90e38aaf5"),
+        Some(&account)
+    );
+    assert_eq!(
+        accounts.find("069a79f444e94726a5befca90e38aaf5"),
+        Some(&account)
+    );
+    assert_eq!(accounts.find("NsgoPlayer"), Some(&account));
+    assert!(accounts.can_play(&store));
+    assert!(!accounts.has_owner(&store));
+}
+
+#[test]
+fn nsgo_session_file_writes_nsgo_user_type_and_profile_uuid() {
+    let dir = std::env::temp_dir().join(format!("nsgo-sess-{}", std::process::id()));
+    let account = Account {
+        uuid: "nsgo:069a79f444e94726a5befca90e38aaf5".into(),
+        name: "NsgoPlayer".into(),
+        skin: None,
+        cape: None,
+    };
+    let secrets = Secrets {
+        nsgo: true,
+        refresh_token: "r".into(),
+        sign_in_required: false,
+        minecraft_token: "tok".into(),
+        minecraft_expires_at: now() + 3600,
+        xuid: None,
+        owns: true,
+    };
+    let path = write_session_file(&dir, &account, &secrets).unwrap();
+    let text = std::fs::read_to_string(&path).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(v["name"], "NsgoPlayer");
+    assert_eq!(v["uuid"], "069a79f444e94726a5befca90e38aaf5");
+    assert_eq!(v["access_token"], "tok");
+    assert_eq!(v["user_type"], "nsgo");
+    let _ = std::fs::remove_dir_all(dir);
 }
