@@ -20,6 +20,7 @@ pub struct AuthSession {
     pub uuid: u128,
     pub xuid: Option<String>,
     access_token: String,
+    nsgo: bool,
 }
 impl std::fmt::Debug for AuthSession {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -40,6 +41,9 @@ pub fn parse_uuid(text: &str) -> Option<u128> {
 }
 
 impl AuthSession {
+    pub fn is_nsgo(&self) -> bool {
+        self.nsgo
+    }
     /// For tests and harnesses.
     pub fn new(name: &str, uuid: u128, access_token: &str) -> Self {
         Self {
@@ -47,6 +51,7 @@ impl AuthSession {
             uuid,
             xuid: None,
             access_token: access_token.to_owned(),
+            nsgo: false,
         }
     }
 
@@ -68,14 +73,15 @@ impl AuthSession {
         let access_token = field("access_token")
             .filter(|t| !t.is_empty())
             .ok_or("the session has no access token")?;
-        if field("user_type").is_some_and(|t| t != "msa") {
-            return Err("the session is not a Microsoft account session".into());
+        if field("user_type").is_some_and(|t| t != "msa" && t != "nsgo") {
+            return Err("the session uses an unsupported account provider".into());
         }
         Ok(Self {
             name: name.to_owned(),
             uuid,
             xuid: field("xuid").map(str::to_owned),
             access_token: access_token.to_owned(),
+            nsgo: field("user_type") == Some("nsgo"),
         })
     }
     /// Read the session file the launcher wrote and delete it at once. It
@@ -198,13 +204,57 @@ pub(crate) fn agent() -> ureq::Agent {
         .build()
 }
 
-/// Whether `HORIZON_API_DISCOVERY` names another services environment.
+pub fn using_nsgo() -> bool {
+    current().map_or_else(
+        || std::env::var("HORIZON_AUTH_PROVIDER").is_ok_and(|v| v == "nsgo"),
+        |s| s.nsgo,
+    )
+}
+
+fn nsgo_discovery() -> serde_json::Value {
+    let base = std::env::var("NSHORIZON_AUTH_BASE_URL")
+        .unwrap_or_else(|_| "https://go.naborajs.me".into());
+    let base = base.trim_end_matches('/');
+    serde_json::json!({
+        "discovery": {
+            "session": {
+                "endpoints": {
+                    "join": {"uri": format!("{base}/api/yggdrasil/sessionserver/session/minecraft/join")},
+                    "verify": {"uri": format!("{base}/api/yggdrasil/sessionserver/session/minecraft/hasJoined")},
+                    "getProfileById": {"uri": format!("{base}/api/yggdrasil/sessionserver/session/minecraft/profile/{{profileId}}")}
+                }
+            },
+            "profiles": {
+                "endpoints": {
+                    "getByName": {"uri": format!("{base}/api/yggdrasil/sessionserver/session/minecraft/profile/{{name}}")},
+                    "getTexture": {
+                        "validUris": [
+                            "https://meproisjwecsvipdjfvr.supabase.co/",
+                            "http://meproisjwecsvipdjfvr.supabase.co/",
+                            "https://go.naborajs.me/",
+                            "http://go.naborajs.me/",
+                            "http://localhost/",
+                            "https://localhost/",
+                            "https://textures.minecraft.net/texture/{textureId}",
+                            "http://textures.minecraft.net/texture/{textureId}"
+                        ]
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// Whether `HORIZON_API_DISCOVERY` names another services environment, or NSGO is active.
 pub fn discovery_overridden() -> bool {
-    discovery_url() != DEFAULT_DISCOVERY
+    using_nsgo() || discovery_url() != DEFAULT_DISCOVERY
 }
 
 /// The discovery document, fetched once per game (a failure is retried next time).
 pub(crate) fn discovery() -> Result<Arc<serde_json::Value>, JoinError> {
+    if using_nsgo() {
+        return Ok(Arc::new(nsgo_discovery()));
+    }
     static CACHE: Mutex<Option<Arc<serde_json::Value>>> = Mutex::new(None);
     if let Some(d) = CACHE.lock().unwrap().clone() {
         return Ok(d);
@@ -235,6 +285,9 @@ pub fn endpoint(doc: &serde_json::Value, service: &str, name: &str) -> Option<St
 /// attributes call falls back to the offline properties, a failed profile call
 /// to no actions, as vanilla does. Blocks: call it off the main thread.
 pub fn fetch_account_status(session: &AuthSession) -> crate::ban_notice::AccountStatus {
+    if session.nsgo {
+        return crate::ban_notice::AccountStatus::default();
+    }
     use crate::ban_notice::{AccountStatus, parse_profile_actions, parse_properties};
     let Ok(doc) = discovery() else {
         return AccountStatus::default();
@@ -476,6 +529,9 @@ pub fn prepare_chat_keys(now: bool) {
 
 /// Prepare keys for this player, independently of the other local accounts.
 pub fn prepare_chat_keys_for(session: Arc<AuthSession>, now: bool) {
+    if session.nsgo {
+        return;
+    }
     let uuid = session.uuid;
     let mut accounts = CHAT_KEYS.lock().unwrap();
     let keys = accounts.entry(uuid).or_default();
@@ -532,6 +588,28 @@ const MINECRAFT_PROFILE: &str = "https://api.minecraftservices.com/minecraft/pro
 /// Single-player and integrated servers often send no `textures` property, or
 /// one without the equipped cape; the client asks the profile endpoint once.
 pub fn own_textures(session: &AuthSession) -> Option<crate::skins::Textures> {
+    if session.nsgo {
+        let base = std::env::var("NSHORIZON_AUTH_BASE_URL")
+            .unwrap_or_else(|_| "https://go.naborajs.me".into());
+        let base = base.trim_end_matches('/');
+        let url = format!(
+            "{base}/api/yggdrasil/sessionserver/session/minecraft/profile/{:032x}",
+            session.uuid
+        );
+        let body = agent().get(&url).call().ok()?.into_string().ok()?;
+        let profile: serde_json::Value = serde_json::from_str(&body).ok()?;
+        let properties = profile.get("properties")?.as_array()?;
+        let value = properties
+            .iter()
+            .find(|p| p.get("name").and_then(|n| n.as_str()) == Some("textures"))?
+            .get("value")?
+            .as_str()?;
+        return Some(crate::skins::unpack(
+            value,
+            crate::skins::Signature::Unsigned,
+            crate::skins::texture_uris(),
+        ));
+    }
     let response = agent()
         .get(MINECRAFT_PROFILE)
         .set("Authorization", &format!("Bearer {}", session.access_token))
@@ -948,5 +1026,30 @@ mod tests {
             Some("https://s/join")
         );
         assert_eq!(endpoint(&doc, "session", "verify"), None);
+    }
+
+    #[test]
+    fn nsgo_session_handoff_and_discovery() {
+        let session = AuthSession::parse(
+            r#"{"name":"NsgoPlayer","uuid":"069a79f444e94726a5befca90e38aaf5","access_token":"nsgo-secret","user_type":"nsgo"}"#,
+        )
+        .unwrap();
+        assert!(session.is_nsgo());
+        assert_eq!(session.name, "NsgoPlayer");
+        let body: serde_json::Value =
+            serde_json::from_str(&join_request(&session, "-1234")).unwrap();
+        assert_eq!(
+            body,
+            serde_json::json!({"accessToken": "nsgo-secret", "selectedProfile": "069a79f444e94726a5befca90e38aaf5", "serverId": "-1234"})
+        );
+        let doc = nsgo_discovery();
+        assert_eq!(
+            endpoint(&doc, "session", "join").as_deref(),
+            Some("https://go.naborajs.me/api/yggdrasil/sessionserver/session/minecraft/join")
+        );
+        assert_eq!(
+            endpoint(&doc, "session", "verify").as_deref(),
+            Some("https://go.naborajs.me/api/yggdrasil/sessionserver/session/minecraft/hasJoined")
+        );
     }
 }

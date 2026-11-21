@@ -36,6 +36,19 @@ pub const TEXTURE_URIS: [&str; 2] = [
     "http://textures.minecraft.net/texture/{textureId}",
 ];
 
+pub const NSGO_TEXTURE_URIS: [&str; 10] = [
+    "https://meproisjwecsvipdjfvr.supabase.co/",
+    "http://meproisjwecsvipdjfvr.supabase.co/",
+    "https://go.naborajs.me/",
+    "http://go.naborajs.me/",
+    "https://drop.naborajs.me/",
+    "http://drop.naborajs.me/",
+    "http://localhost/",
+    "https://localhost/",
+    "https://textures.minecraft.net/texture/{textureId}",
+    "http://textures.minecraft.net/texture/{textureId}",
+];
+
 /// `MinecraftServicesDiscoveryService`'s valid texture URIs: the discovery
 /// document's `profiles` / `getTexture` `validUris`, which
 /// `MinecraftServicesSessionService.isAllowedTextureDomain` checks texture URLs
@@ -50,7 +63,13 @@ pub fn texture_uris() -> &'static [String] {
             .then(|| crate::auth::discovery().ok())
             .flatten()
             .and_then(|doc| discovery_texture_uris(&doc))
-            .unwrap_or_else(|| TEXTURE_URIS.map(str::to_owned).to_vec())
+            .unwrap_or_else(|| {
+                if crate::auth::using_nsgo() {
+                    NSGO_TEXTURE_URIS.map(str::to_owned).to_vec()
+                } else {
+                    TEXTURE_URIS.map(str::to_owned).to_vec()
+                }
+            })
     })
 }
 
