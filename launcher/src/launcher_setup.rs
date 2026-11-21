@@ -237,6 +237,7 @@ impl Launcher {
             client_vars: Vec::new(),
             collection: collection::Collection::load(),
             agents: agents_page::AgentsUi::default(),
+            nsgo: Default::default(),
             playing: None,
             official_players: None,
             tx,

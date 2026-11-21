@@ -16,6 +16,7 @@ use std::process::Command;
 
 /// Who plays: the account's name, UUID, Minecraft access token and Xbox user id.
 pub struct Player {
+    pub nsgo: bool,
     pub name: String,
     pub uuid: String,
     pub token: String,

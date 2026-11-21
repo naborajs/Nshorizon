@@ -2139,8 +2139,8 @@ fn download_for_owner(
     log: &dyn Fn(String),
 ) -> Result<(), String> {
     let mut accounts = account::Accounts::load();
-    // Any account that owns the game may download it (`launch`), not only the one that plays.
-    let pass = account::launch(
+    // An authenticated account (Microsoft owner or NSGO) may download game files.
+    let pass = account::launch_for_download(
         &account::Endpoints::live(),
         account::client_id().as_deref(),
         account::store(),
@@ -2242,7 +2242,12 @@ pub fn java_game(
     }
     let version =
         crate::java_launch::resolve(crate::java_launch::read(&file(&start)?)?, &minecraft)?;
-    let jvm_args: Vec<String> = game.jvm_args.split_whitespace().map(String::from).collect();
+    let mut jvm_args: Vec<String> = game.jvm_args.split_whitespace().map(String::from).collect();
+    if player.nsgo {
+        jvm_args.push(account::nsgo::agent::java_agent(
+            &data_dir().join("authlib-injector"),
+        )?);
+    }
     fs::create_dir_all(&instance.home).map_err(|e| format!("{}: {e}", instance.home.display()))?;
     crate::java_launch::command(
         &version,
@@ -2275,13 +2280,10 @@ fn download_for(
 ) -> Result<(), String> {
     let v = &pins.version;
     match pass {
-        Ok(account::Launch {
-            owner: Some((owner, _)),
-            ..
-        }) => {
-            let name = owner.name;
+        Ok(ref pass) if pass.download_name().is_some() => {
+            let name = pass.download_name().expect("download authorization");
             log(format!(
-                "{name} owns Minecraft: downloading {v} from Mojang"
+                "{name} is authorized: downloading {v} from Mojang"
             ));
             let os = match sources::Os::current() {
                 sources::Os::Linux => "linux",
@@ -2289,22 +2291,21 @@ fn download_for(
                 sources::Os::Windows => "windows",
             };
             mojang::download_http(pins, dir, os, mojang::JOBS, fetch, &mojang::CANCEL, log).map_err(|e| {
-                format!("\n  • Horizon tried to download {v} from Mojang for {name}, but: {e}")
+                format!("\n  • Nshorizon tried to download {v} from Mojang for {name}, but: {e}")
             })
         }
         // An owner by its last answer, who can't be asked now.
         Ok(pass) => Err(format!(
-            "\n  • Downloading {v} from Mojang needs your Microsoft account, which could not be \
+            "\n  • Downloading {v} from Mojang needs your account, which could not be \
              checked: {}",
             pass.offline.unwrap_or_default()
         )),
         Err(_) if signed_in => Err(
-            "\n  • No signed-in account owns Minecraft: Java Edition, so Horizon can't download it."
+            "\n  • No signed-in account is authorized to download Minecraft: Java Edition."
                 .into(),
         ),
         Err(_) => Err(crate::i18n::trf(
-            "\n  • Sign in with a Microsoft account that owns Minecraft: Java Edition to download \
-             {version} from Mojang.",
+            "\n  • Sign in with your NSGO or Microsoft account to download {version} from Mojang.",
             &[("version", v)],
         )),
     }
